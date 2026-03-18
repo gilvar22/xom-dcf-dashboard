@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XOM — Behind the Numbers</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f; --bg2: #111318; --bg3: #181c22; --bg4: #1f242c;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8eaed; --text2: #8a9bb0; --text3: #4a5568;
+    --amber: #f5a623; --green: #22c55e; --red: #ef4444; --blue: #3b82f6;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  body.light {
+    --bg: #f4f5f7; --bg2: #ffffff; --bg3: #f0f2f5; --bg4: #e4e7ec;
+    --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.15);
+    --text: #111827; --text2: #4b5563; --text3: #9ca3af;
+    --amber: #b45309; --green: #15803d; --red: #dc2626; --blue: #1d4ed8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--amber); letter-spacing: 0.12em; }
+  .logo span { color: var(--text2); font-weight: 400; }
+  .nav-link { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--text3); text-decoration: none; padding: 5px 12px; border-radius: 4px; border: 1px solid transparent; transition: all 0.15s; }
+  .nav-link:hover { color: var(--text); background: var(--bg3); }
+  .nav-active { color: var(--amber) !important; border-color: var(--border2) !important; background: var(--bg3); }
+  .theme-toggle { background: var(--bg3); border: 1px solid var(--border2); color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 5px 12px; border-radius: 4px; cursor: pointer; letter-spacing: 0.06em; }
+  .theme-toggle:hover { background: var(--bg4); }
+  .main { max-width: 1400px; margin: 0 auto; padding: 1.5rem 2rem 4rem; display: flex; flex-direction: column; gap: 1.25rem; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; }
+  .card-title { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+  .card-title::before { content: ''; display: block; width: 3px; height: 12px; background: var(--amber); border-radius: 2px; }
+  .tab-row { display: flex; gap: 6px; margin-bottom: 0; }
+  .sheet-tab { font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 4px 4px 0 0; border: 1px solid var(--border); border-bottom: none; cursor: pointer; color: var(--text3); background: var(--bg3); transition: all 0.15s; letter-spacing: 0.05em; }
+  .sheet-tab:hover { color: var(--text2); }
+  .sheet-tab.active { color: var(--amber); background: var(--bg2); border-color: var(--border2); }
+  .sheet-preview-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; cursor: pointer; transition: all 0.15s; }
+  .sheet-preview-card:hover { border-color: var(--border2); background: var(--bg4); }
+  .active-sheet { border-color: var(--amber) !important; background: var(--bg4) !important; }
+  .sheet-preview-num { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--border2); margin-bottom: 6px; }
+  .active-sheet .sheet-preview-num { color: var(--amber); }
+  .sheet-preview-title { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; letter-spacing: 0.04em; }
+  .sheet-preview-desc { font-size: 11px; color: var(--text3); line-height: 1.6; }
+  .active-sheet .sheet-preview-desc { color: var(--text2); }
+  .mini-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; }
+  .mini-table th { color: var(--text3); font-weight: 500; font-size: 10px; letter-spacing: 0.06em; padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: left; background: var(--bg3); }
+  .mini-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text); }
+  body.light .mini-table td { border-bottom: 1px solid rgba(0,0,0,0.04); }
+  .mini-table td:first-child { color: var(--text2); }
+  .mini-table td:nth-child(2) { color: var(--amber); font-weight: 500; }
+  .mini-table tr:last-child td { border-bottom: none; }
+  .method-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .method-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 1rem 1.25rem; }
+  .method-card-title { font-family: var(--mono); font-size: 11px; color: var(--amber); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .method-card-body { font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .method-card-body strong { color: var(--text); font-weight: 500; }
+  .assumptions-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .assumptions-table th { font-family: var(--mono); font-size: 10px; color: var(--text3); font-weight: 500; letter-spacing: 0.06em; padding: 6px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+  .assumptions-table td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); color: var(--text); vertical-align: top; }
+  body.light .assumptions-table td { border-bottom: 1px solid rgba(0,0,0,0.04); }
+  .assumptions-table td:first-child { color: var(--text2); font-family: var(--mono); font-size: 12px; width: 230px; }
+  .assumptions-table td:nth-child(2) { color: var(--amber); font-family: var(--mono); font-size: 12px; font-weight: 500; width: 120px; }
+  .assumptions-table tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 3px; margin-left: 6px; }
+  .tag-source { background: rgba(59,130,246,0.1); color: var(--blue); }
+  .tag-calc { background: rgba(34,197,94,0.1); color: var(--green); }
+  footer { border-top: 1px solid var(--border); padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
+  .footer-text { font-family: var(--mono); font-size: 11px; color: var(--text3); line-height: 1.8; }
+  @media (max-width: 800px) { .method-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <div class="logo">XOM<span>/TERMINAL</span></div>
+    <nav style="display:flex;gap:4px;">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a href="model.html" class="nav-link nav-active">Behind the Numbers</a>
+    </nav>
+  </div>
+  <div style="font-family:var(--mono);font-size:11px;color:var(--text3);">ECON 134A — Winter 2026 Term Project</div>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()">LIGHT MODE</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SPREADSHEET SECTION -->
+  <div class="card" style="padding-bottom: 0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div class="card-title" style="margin-bottom:0;">DCF Model — Google Sheets Workbook (FY2025)</div>
+      <div style="display:flex;gap:8px;">
+        <a href="https://docs.google.com/spreadsheets/d/1RjznlIbjOAaxP3m392mpMTzrSAfOTzDs/edit" target="_blank" style="font-family:var(--mono);font-size:11px;color:var(--amber);text-decoration:none;border:1px solid var(--border2);padding:4px 12px;border-radius:4px;letter-spacing:0.05em;">Open in Sheets ↗</a>
+        <a href="XOM_DCF_Analysis.xlsx" download style="font-family:var(--mono);font-size:11px;color:var(--text2);text-decoration:none;border:1px solid var(--border2);padding:4px 12px;border-radius:4px;letter-spacing:0.05em;">Download .xlsx ↓</a>
+      </div>
+    </div>
+    <div class="tab-row">
+      <div class="sheet-tab active" onclick="setActiveSheet(0)">1 — Assumptions</div>
+      <div class="sheet-tab" onclick="setActiveSheet(1)">2 — Calculations</div>
+      <div class="sheet-tab" onclick="setActiveSheet(2)">3 — Scenario Analysis</div>
+      <div class="sheet-tab" onclick="setActiveSheet(3)">4 — Summary & Memo</div>
+    </div>
+
+    <div id="sheets-container">
+      <div style="border:1px solid var(--border2); border-radius:0 8px 8px 8px; background:var(--bg3); padding:2.5rem 2rem;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;">
+          <div class="sheet-preview-card active-sheet" onclick="setActiveSheet(0)" id="preview-0">
+            <div class="sheet-preview-num">01</div>
+            <div class="sheet-preview-title">Assumptions</div>
+            <div class="sheet-preview-desc">WACC, beta, ERP, capital structure, FCF base, growth rates. All sourced to FY2025 10-K.</div>
+          </div>
+          <div class="sheet-preview-card" onclick="setActiveSheet(1)" id="preview-1">
+            <div class="sheet-preview-num">02</div>
+            <div class="sheet-preview-title">Calculations</div>
+            <div class="sheet-preview-desc">Historical FCF (FY2021–2025), 5-year projection, terminal value, EV → intrinsic price.</div>
+          </div>
+          <div class="sheet-preview-card" onclick="setActiveSheet(2)" id="preview-2">
+            <div class="sheet-preview-num">03</div>
+            <div class="sheet-preview-title">Scenario Analysis</div>
+            <div class="sheet-preview-desc">Bear/Base/Bull with probability weights, sensitivity heatmap, written discussion.</div>
+          </div>
+          <div class="sheet-preview-card" onclick="setActiveSheet(3)" id="preview-3">
+            <div class="sheet-preview-num">04</div>
+            <div class="sheet-preview-title">Summary & Memo</div>
+            <div class="sheet-preview-desc">1-page memo with key assumptions, intrinsic vs. market, discrepancy analysis, and sources.</div>
+          </div>
+        </div>
+
+        <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:1.5rem 2rem;display:flex;align-items:center;justify-content:space-between;gap:2rem;">
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Currently viewing</div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--amber);" id="active-sheet-name">1 — Assumptions</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px;" id="active-sheet-desc">WACC, beta, ERP, capital structure, FCF base, growth rates. All sourced to FY2025 10-K.</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-shrink:0;">
+            <a id="open-sheet-btn" href="https://docs.google.com/spreadsheets/d/1RjznlIbjOAaxP3m392mpMTzrSAfOTzDs/edit" target="_blank"
+              style="font-family:var(--mono);font-size:12px;color:var(--amber);text-decoration:none;border:1px solid var(--amber);padding:8px 20px;border-radius:4px;letter-spacing:0.05em;"
+              onmouseover="this.style.background='rgba(245,166,35,0.08)'"
+              onmouseout="this.style.background='transparent'">Open in Google Sheets ↗</a>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;" id="sheet-data-preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYST METHODOLOGY -->
+  <div class="card">
+    <div class="card-title">Analyst Methodology — Why These Numbers</div>
+    <div class="method-grid">
+      <div class="method-card">
+        <div class="method-card-title">FCF Normalization</div>
+        <div class="method-card-body">
+          Rather than averaging past FCF, we use the <strong>FY2025 actual FCF of $22.97B</strong> as the base — the most current data from the FY2025 10-K. FY2022 ($36.1B) was excluded as a one-time Russia/Ukraine supply shock. Year 1 growth of +23.70% was derived analytically: the average of (FY2022 − FY2024)/FY2022 (11.02%) and (FY2022 − FY2025)/FY2022 (36.37%), proxying the Iran supply disruption recovery against the Russia shock template.
+        </div>
+      </div>
+      <div class="method-card">
+        <div class="method-card-title">Growth Rate Justification</div>
+        <div class="method-card-body">
+          <strong>Year 1: +23.70%</strong> — derived from historical shock comparison (see above). <strong>Years 2–5: −10%/yr</strong> — consistent with XOM's observed post-Russia-shock FCF CAGR from FY2022 to FY2025 (approx. −14%/yr), moderated to −10% to reflect partial Iran recovery sustaining elevated prices longer than the Russia shock.
+        </div>
+      </div>
+      <div class="method-card">
+        <div class="method-card-title">Terminal Growth Rate</div>
+        <div class="method-card-body">
+          <strong>2.5%</strong> — selected as the midpoint of WallStreetPrep's large-cap energy guidance (2.0%–3.5%), consistent with IMF long-run nominal US GDP growth forecasts. A higher rate was not used given structural energy-transition headwinds that may cap long-run growth for fossil fuel producers below GDP pace.
+        </div>
+      </div>
+      <div class="method-card">
+        <div class="method-card-title">WACC Construction</div>
+        <div class="method-card-body">
+          Beta of <strong>0.35</strong> (Yahoo Finance, March 2026) reflects XOM's role as an inflation hedge — unusually low for an energy company, but validated by 5-year regression data. ERP of <strong>4.46%</strong> uses Damodaran's January 2026 implied US ERP. Cost of debt at <strong>1.39%</strong> pre-tax derived directly from FY2025 Interest Expense / Total Debt. Tax rate of <strong>27.9%</strong> from FY2025 10-K (Income Tax Exp / EBT).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY ASSUMPTIONS TABLE -->
+  <div class="card">
+    <div class="card-title">Key Assumptions at a Glance — FY2025 Data</div>
+    <table class="assumptions-table">
+      <thead>
+        <tr>
+          <th>Input</th>
+          <th>Value Used</th>
+          <th>Rationale &amp; Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Share Price</td><td>$158.81</td><td>Yahoo Finance, March 17, 2026 <span class="tag tag-source">Yahoo Finance</span></td></tr>
+        <tr><td>Shares Outstanding</td><td>4.305B</td><td>XOM 10-K FY2025, SEC EDGAR <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>Total Debt</td><td>$43.537B</td><td>STD $9.296B + LTD $34.241B; FY2025 Balance Sheet <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>Cash &amp; Equivalents</td><td>$10.681B</td><td>FY2025 Balance Sheet <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>Net Debt</td><td>$32.856B</td><td>Total Debt − Cash <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Interest Expense</td><td>$0.603B</td><td>FY2025 Income Statement <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>Risk-Free Rate</td><td>4.31%</td><td>10-Year US Treasury yield, March 2026 <span class="tag tag-source">US Treasury</span></td></tr>
+        <tr><td>Beta</td><td>0.35</td><td>Yahoo Finance 5-yr monthly vs S&amp;P 500, March 2026. Reflects inflation-hedge characteristic. <span class="tag tag-source">Yahoo Finance</span></td></tr>
+        <tr><td>Equity Risk Premium</td><td>4.46%</td><td>Damodaran (NYU Stern), January 2026 implied US ERP <span class="tag tag-source">Damodaran</span></td></tr>
+        <tr><td>Cost of Equity (Low)</td><td>5.87%</td><td>4.31% + 0.35 × 4.46% (Damodaran ERP) <span class="tag tag-calc">CAPM</span></td></tr>
+        <tr><td>Cost of Equity (High)</td><td>6.24%</td><td>4.31% + 0.35 × 6.00% (investing.com estimate) <span class="tag tag-source">investing.com</span></td></tr>
+        <tr><td>Cost of Equity (Mid)</td><td>6.05%</td><td>Average of Low and High <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Cost of Debt (pre-tax)</td><td>1.39%</td><td>Interest Expense $0.603B / Total Debt $43.537B <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Effective Tax Rate</td><td>27.9%</td><td>Income Tax Exp $11.504B / EBT $41.268B; FY2025 10-K <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>WACC</td><td>5.75%</td><td>94.0% × 6.05% + 6.0% × 1.39% × (1−27.9%) <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Base FCF (FY2025)</td><td>$22.97B</td><td>Operating CF $51.97B − Capex $29.0B; XOM 10-K FY2025 <span class="tag tag-source">10-K</span></td></tr>
+        <tr><td>FCF Growth — Year 1</td><td>+23.70%</td><td>avg[(FY2022−FY2024)/FY2022, (FY2022−FY2025)/FY2022] = avg(11.02%, 36.37%) <span class="tag tag-calc">Derived</span></td></tr>
+        <tr><td>FCF Growth — Years 2–5</td><td>−10.0%/yr</td><td>Post-shock mean reversion; consistent with FY2022→FY2025 observed CAGR <span class="tag tag-calc">Analyst Est.</span></td></tr>
+        <tr><td>Terminal Growth Rate</td><td>2.5%</td><td>WallStreetPrep range 2.0–3.5% for large-cap energy; midpoint chosen <span class="tag tag-source">WallStreetPrep</span></td></tr>
+        <tr><td>Net Debt (model)</td><td>$32.856B</td><td>$43.537B − $10.681B <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Intrinsic Share Price</td><td>$191.09</td><td>Equity Value $822.6B / 4.305B shares <span class="tag tag-calc">Formula</span></td></tr>
+        <tr><td>Upside vs. Market</td><td>+20.3%</td><td>$191.09 vs $158.81 <span class="tag tag-calc">Formula</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-text">
+    ECON 134A — Winter 2026 Term Project &nbsp;|&nbsp; ExxonMobil (XOM) DCF Analysis &nbsp;|&nbsp; Sources: XOM 10-K FY2025 (SEC EDGAR), Yahoo Finance, US Treasury, Damodaran (NYU) Jan 2026, EIA STEO Mar 2026, WallStreetPrep, investing.com. &nbsp;|&nbsp; Academic use only — not investment advice.
+  </div>
+</footer>
+
+<script>
+const SHEET_ID = '1RjznlIbjOAaxP3m392mpMTzrSAfOTzDs';
+
+const SHEETS = [
+  {
+    name: '1 — Assumptions',
+    desc: 'WACC, beta, ERP, capital structure, FCF base, growth rates. All sourced to FY2025 10-K.',
+    rows: [
+      ['Share Price', '$158.81', 'Yahoo Finance, March 17, 2026'],
+      ['Shares Outstanding', '4.305B', 'XOM 10-K FY2025'],
+      ['Total Debt', '$43.537B', 'STD $9.296B + LTD $34.241B'],
+      ['Cash & Equivalents', '$10.681B', 'XOM 10-K FY2025'],
+      ['Net Debt', '$32.856B', 'Total Debt − Cash'],
+      ['Interest Expense', '$0.603B', 'FY2025 Income Statement'],
+      ['Risk-Free Rate', '4.31%', 'US Treasury 10Y, March 2026'],
+      ['Beta', '0.35', 'Yahoo Finance 5-yr, March 2026'],
+      ['Equity Risk Premium', '4.46%', 'Damodaran NYU implied ERP, Jan 2026'],
+      ['Cost of Equity (mid)', '6.05%', 'avg of Low (5.87%) and High (6.24%)'],
+      ['Cost of Debt (pre-tax)', '1.39%', 'Interest Exp / Total Debt'],
+      ['Effective Tax Rate', '27.9%', 'FY2025 Income Tax / EBT'],
+      ['WACC', '5.75%', 'We×Ke + Wd×Kd×(1−t)'],
+      ['Base FCF (FY2025)', '$22.97B', 'OCF $51.97B − Capex $29.0B'],
+      ['FCF Growth — Yr 1', '+23.70%', 'avg[(36.1−32.1)/36.1, (36.1−23.0)/36.1]'],
+      ['FCF Growth — Yr 2–5', '−10.0%/yr', 'Post-shock mean reversion'],
+      ['Terminal Growth Rate', '2.5%', 'WallStreetPrep mid-range'],
+    ]
+  },
+  {
+    name: '2 — Calculations',
+    desc: 'Historical FCF (FY2021–2025), 5-year projection, terminal value, EV → intrinsic price.',
+    rows: [
+      ['FY2021 FCF', '$8.1B', 'OCF $28.4B − Capex $20.3B'],
+      ['FY2022 FCF', '$36.1B', 'Russia/Ukraine shock peak — Brent avg $100.9'],
+      ['FY2023 FCF', '$36.1B', 'Elevated but normalizing — Brent avg $82.6'],
+      ['FY2024 FCF', '$32.1B', 'Normalizing — Brent avg $80.0'],
+      ['FY2025 FCF', '$22.97B', 'Base case — Brent avg $70.0, Capex $29.0B'],
+      ['Year 1 FCF (FY2026)', '$44.65B', 'Base × (1 + 23.70%)'],
+      ['Year 2 FCF (FY2027)', '$40.19B', 'Year 1 × (1 − 10%)'],
+      ['Year 3 FCF (FY2028)', '$36.17B', 'Year 2 × (1 − 10%)'],
+      ['Year 4 FCF (FY2029)', '$32.55B', 'Year 3 × (1 − 10%)'],
+      ['Year 5 FCF (FY2030)', '$29.30B', 'Year 4 × (1 − 10%)'],
+      ['Sum of PV(FCF)', '$156.9B', 'Discounted at WACC 5.75%'],
+      ['Terminal Value (PV)', '$698.6B', '~82% of Enterprise Value'],
+      ['Enterprise Value', '$855.5B', 'ΣPVFCF + PV(Terminal Value)'],
+      ['Net Debt', '$32.856B', 'From Assumptions'],
+      ['Equity Value', '$822.6B', 'EV − Net Debt'],
+      ['Intrinsic Share Price', '$191.09', 'Equity Value / 4.305B shares'],
+      ['Upside vs. Market', '+20.3%', '$191.09 vs $158.81'],
+    ]
+  },
+  {
+    name: '3 — Scenario Analysis',
+    desc: 'Bear/Base/Bull with probability weights, sensitivity heatmap, written discussion.',
+    isScenario: true,
+    rows: [
+      ['', 'Bear', 'Base', 'Bull'],
+      ['Oil Price', '$50/bbl', '$72/bbl', '$95/bbl'],
+      ['FCF Growth', '−15.0%/yr', '5.0%/yr', '+30.0%/yr'],
+      ['Terminal Growth', '1.0%', '2.5%', '3.5%'],
+      ['WACC', '13.5%', '5.75%', '8.0%'],
+      ['Base FCF', '$8.1B', '$32.1B', '$36.1B'],
+      ['Intrinsic Price', '$0.24', '$255.95', '$555.40'],
+      ['vs. Market ($158.81)', '−99.8%', '+61.2%', '+249.7%'],
+      ['Probability', '25%', '50%', '25%'],
+      ['Prob.-Weighted Value', '', '$266.89', ''],
+    ]
+  },
+  {
+    name: '4 — Summary & Memo',
+    desc: '1-page memo with key assumptions, intrinsic vs. market, discrepancy analysis, and sources.',
+    rows: [
+      ['WACC', '5.75%', 'Ke=6.05%, Kd(at)=1.00%, We=94.0%, Wd=6.0%'],
+      ['Sum PV(FCF)', '$156.9B', 'Years 1–5 at Yr1 +23.70%, Yr2–5 −10%'],
+      ['PV Terminal Value', '$698.6B', '~82% of total enterprise value'],
+      ['Enterprise Value', '$855.5B', 'ΣPVFCF + PV(TV)'],
+      ['Net Debt', '$32.856B', 'Total Debt $43.537B − Cash $10.681B'],
+      ['Equity Value', '$822.6B', 'EV − Net Debt'],
+      ['Intrinsic Share Price', '$191.09', 'Base case DCF'],
+      ['Market Price', '$158.81', 'Yahoo Finance, March 17, 2026'],
+      ['Upside', '+20.3%', 'Intrinsic vs. Market'],
+      ['Prob.-Weighted Value', '$266.89', '0.25×Bear + 0.50×Base + 0.25×Bull'],
+      ['Verdict', 'Overweight', '$191 price target'],
+    ]
+  }
+];
+
+let activeIdx = 0;
+
+function setActiveSheet(idx) {
+  activeIdx = idx;
+  document.querySelectorAll('.sheet-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('.sheet-preview-card').forEach((c, i) => c.classList.toggle('active-sheet', i === idx));
+  document.getElementById('active-sheet-name').textContent = SHEETS[idx].name;
+  document.getElementById('active-sheet-desc').textContent = SHEETS[idx].desc;
+  document.getElementById('open-sheet-btn').href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+  renderMiniTable(idx);
+}
+
+function renderMiniTable(idx) {
+  const sheet = SHEETS[idx];
+  const rows = sheet.rows;
+  const isScenario = !!sheet.isScenario;
+  let html = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+    <table class="mini-table"><thead><tr>`;
+  if (isScenario) {
+    html += `<th>Assumption</th><th style="color:var(--red)">Bear</th><th style="color:var(--amber)">Base</th><th style="color:var(--green)">Bull</th>`;
+  } else {
+    html += `<th>Input / Output</th><th>Value</th><th>Notes</th>`;
+  }
+  html += `</tr></thead><tbody>`;
+  rows.forEach((r, i) => {
+    if (isScenario && i === 0) return;
+    html += `<tr>`;
+    r.forEach((cell, ci) => {
+      let style = '';
+      if (!isScenario && ci === 1) style = 'style="color:var(--amber);font-weight:500;"';
+      if (isScenario && ci === 1) style = 'style="color:var(--red);"';
+      if (isScenario && ci === 2) style = 'style="color:var(--amber);font-weight:500;"';
+      if (isScenario && ci === 3) style = 'style="color:var(--green);"';
+      html += `<td ${style}>${cell}</td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  document.getElementById('sheet-data-preview').innerHTML = html;
+}
+
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-btn').textContent = isLight ? 'DARK MODE' : 'LIGHT MODE';
+}
+
+setActiveSheet(0);
+</script>
+</body>
+</html>
